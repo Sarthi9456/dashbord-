@@ -13,22 +13,40 @@
  * migrations still apply cleanly, existing data is left untouched.
  */
 const { execSync } = require('child_process');
-const { User } = require('../src/models');
+const path = require('path');
+const { User, sequelize } = require('../src/models');
 
 (async () => {
   try {
+    console.log('[bootstrap] DB dialect:', sequelize.getDialect());
+    console.log('[bootstrap] DB storage path:', sequelize.options.storage);
+    console.log('[bootstrap] Resolved absolute path:', path.resolve(sequelize.options.storage || '.'));
+    console.log('[bootstrap] Process cwd:', process.cwd());
+
+    await sequelize.authenticate();
+    console.log('[bootstrap] DB connection OK.');
+
     const userCount = await User.count();
+    console.log(`[bootstrap] Current user count: ${userCount}`);
+
     if (userCount === 0) {
       console.log('[bootstrap] No users found — running seeders...');
       execSync('npx sequelize-cli db:seed:all', { stdio: 'inherit' });
+      const afterCount = await User.count();
+      console.log(`[bootstrap] User count after seeding: ${afterCount}`);
+      if (afterCount === 0) {
+        throw new Error('Seeders ran but user count is still 0 — seeding did not actually insert data.');
+      }
     } else {
       console.log(`[bootstrap] ${userCount} user(s) already present — skipping seeders.`);
     }
-  } catch (err) {
-    console.error('[bootstrap] Seed check failed:', err.message);
-    // Don't crash the boot over this — the app can still run against
-    // whatever schema/data already exists.
-  } finally {
     process.exit(0);
+  } catch (err) {
+    // Fail LOUDLY and stop the boot. A server that starts with a broken/empty
+    // database is worse than a deploy that clearly fails with a readable
+    // error in the logs.
+    console.error('[bootstrap] FATAL: seed/bootstrap step failed.');
+    console.error(err);
+    process.exit(1);
   }
 })();
