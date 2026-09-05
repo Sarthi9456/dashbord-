@@ -13,14 +13,13 @@
  * migrations still apply cleanly, existing data is left untouched.
  */
 const { execSync } = require('child_process');
-const path = require('path');
 const { User, sequelize } = require('../src/models');
 
 (async () => {
   try {
+    const { host, port, database, username } = sequelize.config;
     console.log('[bootstrap] DB dialect:', sequelize.getDialect());
-    console.log('[bootstrap] DB storage path:', sequelize.options.storage);
-    console.log('[bootstrap] Resolved absolute path:', path.resolve(sequelize.options.storage || '.'));
+    console.log(`[bootstrap] DB target: ${username}@${host}:${port}/${database}`);
     console.log('[bootstrap] Process cwd:', process.cwd());
 
     await sequelize.authenticate();

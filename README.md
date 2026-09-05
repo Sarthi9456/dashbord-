@@ -1,18 +1,18 @@
 # Role-Based Dashboard
 
-A full-stack Role-Based Access Control (RBAC) dashboard built with **Node.js, Express, Sequelize (SQLite) and EJS**. Supports three roles — **Admin**, **Manager**, and **Employee** — each with different backend-enforced permissions for managing users, projects, and tasks.
+A full-stack Role-Based Access Control (RBAC) dashboard built with **Node.js, Express, Sequelize (MySQL) and EJS**. Supports three roles — **Admin**, **Manager**, and **Employee** — each with different backend-enforced permissions for managing users, projects, and tasks.
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Backend | Node.js, Express 5 |
-| Database | SQLite (via Sequelize ORM) |
-| Auth | express-session + bcryptjs (hashed passwords) |
+| Database | MySQL 8 (via Sequelize ORM + `mysql2` driver) |
+| Auth | express-session (MySQL-backed session store) + bcryptjs (hashed passwords) |
 | Views | EJS (server-rendered, no separate frontend build needed) |
 | Migrations/Seeders | Sequelize CLI |
 
-No separate frontend build step is required — the server renders HTML directly, so `npm start` is all you need.
+No separate frontend build step is required — the server renders HTML directly, so `npm start` is all you need (after MySQL is set up).
 
 ## Features
 
@@ -27,57 +27,75 @@ No separate frontend build step is required — the server renders HTML directly
 - **Dashboard statistics**, scoped per role:
   - Admin/Manager: Total Users, Total Projects, Active Projects, Pending/In-Progress/Completed Tasks, recent projects table.
   - Employee: their own project count, task count, and per-status breakdown.
-- **Database relationships**: Role → Users (1:M), User → Projects created (1:M), User ↔ Projects assigned (M:M via `project_employees`), Project → Tasks (1:M), User → Tasks assigned (1:M).
+- **Database relationships**: Role → Users (1:M), User → Projects created (1:M), User ↔ Projects assigned (M:M via `project_employees`), Project → Tasks (1:M), User → Tasks assigned (1:M) — all enforced as real MySQL foreign keys.
 - **Migrations & Seeders** (Sequelize CLI) — see `src/migrations` and `src/seeders`.
 - **Bonus features implemented**:
   - Search (users, projects, tasks) & pagination
   - Filters (project status, task status/priority)
   - Server-side form validation (Sequelize validators + controller checks)
-  - Soft delete (`paranoid: true` on Users, Projects, Tasks — deleted rows are kept but excluded from all queries)
+  - Soft delete (`paranoid: true` on Users, Projects, Tasks — deleted rows keep a `deletedAt` timestamp but are excluded from all queries)
   - Flash messages for success/error feedback
 
 ## Project Structure
 
 ```
 rbac-dashboard/
-├── config/config.json          # Sequelize DB config
-├── server.js                   # App entry point
+├── config/config.js             # Sequelize DB config (reads from .env)
+├── server.js                    # App entry point
 ├── src/
-│   ├── models/                 # Sequelize models (User, Role, Project, Task)
-│   ├── migrations/             # Sequelize migrations (run in order)
-│   ├── seeders/                # Sequelize seeders (roles, users, sample data)
-│   ├── controllers/            # Route handlers / business logic
+│   ├── models/                  # Sequelize models (User, Role, Project, Task)
+│   ├── migrations/              # Sequelize migrations (run in order)
+│   ├── seeders/                 # Sequelize seeders (roles, users, sample data)
+│   ├── controllers/             # Route handlers / business logic
 │   ├── middleware/
-│   │   ├── auth.js             # requireAuth / redirectIfAuthenticated
-│   │   └── authorize.js        # Role-based guard, returns 403 on mismatch
-│   └── routes/                 # Express routers (auth, dashboard, users, projects, tasks)
-├── views/                      # EJS templates
-├── public/css/style.css        # Styling
-├── screenshots/                # App screenshots (see below)
-└── database.sqlite             # SQLite DB file (created after migrations run)
+│   │   ├── auth.js              # requireAuth / redirectIfAuthenticated
+│   │   └── authorize.js         # Role-based guard, returns 403 on mismatch
+│   └── routes/                  # Express routers (auth, dashboard, users, projects, tasks)
+├── views/                       # EJS templates
+├── public/css/style.css         # Styling
+└── screenshots/                 # App screenshots (see below)
 ```
 
 ## Setup Instructions
 
 ### 1. Prerequisites
 - Node.js v18+ and npm
+- MySQL 8.x running locally, or a connection string to a remote MySQL instance
 
 ### 2. Install dependencies
 ```bash
 npm install
 ```
 
-### 3. Configure environment
-Copy `.env.example` to `.env` (a working default is already provided):
+### 3. Create the database
+```sql
+CREATE DATABASE rbac_dashboard;
+CREATE USER 'rbac_user'@'localhost' IDENTIFIED BY 'rbac_password';
+GRANT ALL PRIVILEGES ON rbac_dashboard.* TO 'rbac_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+(Adjust the username/password/database name to whatever you use in step 4 — the values above match the defaults in `.env.example`.)
+
+### 4. Configure environment
+Copy `.env.example` to `.env` and adjust the `DB_*` values to match your MySQL setup:
 ```bash
 cp .env.example .env
 ```
+```env
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_NAME=rbac_dashboard
+DB_USER=rbac_user
+DB_PASSWORD=rbac_password
+DB_SSL=false
+```
+Set `DB_SSL=true` if you're connecting to a managed/cloud MySQL host that requires SSL (most do — see the Deployment section).
 
-### 4. Run migrations & seed the database
+### 5. Run migrations & seed the database
 ```bash
 npm run db:setup
 ```
-This runs all migrations (creating the `roles`, `users`, `projects`, `tasks`, and `project_employees` tables) and seeds them with demo data.
+This runs all migrations (creating the `roles`, `users`, `projects`, `tasks`, and `project_employees` tables as real MySQL tables with foreign key constraints) and seeds them with demo data.
 
 Other useful DB commands:
 ```bash
@@ -87,13 +105,13 @@ npm run migrate:undo   # rollback all migrations
 npm run db:reset       # rollback, re-migrate, and re-seed (fresh start)
 ```
 
-### 5. Start the server
+### 6. Start the server
 ```bash
 npm start
 ```
 The app will be available at **http://localhost:3000**.
 
-### 6. Log in with a seeded demo account
+### 7. Log in with a seeded demo account
 
 | Role | Email | Password |
 |---|---|---|
@@ -111,6 +129,8 @@ users (1) ───< (M) tasks               [users.id = tasks.assignedEmployeeI
 projects (1) ───< (M) tasks            [projects.id = tasks.projectId]
 projects (M) ───< project_employees >─── (M) users   [many-to-many assignment]
 ```
+
+All of the above are real MySQL foreign key constraints (visible via `SHOW CREATE TABLE` or `information_schema.KEY_COLUMN_USAGE`), not just Sequelize-level associations.
 
 - `users.deletedAt`, `projects.deletedAt`, `tasks.deletedAt` — soft-delete columns (Sequelize `paranoid` mode).
 - Passwords are hashed with bcrypt before being persisted (model hook in `src/models/user.js`).
@@ -173,28 +193,26 @@ git remote add origin https://github.com/YOUR_USERNAME/rbac-dashboard.git
 git push -u origin main
 ```
 
-### Render (recommended — free, always-on Node process, zero code changes needed)
+### Render (app hosting) + an external free MySQL host (database)
 
-This repo includes a `render.yaml` Blueprint, so deployment is close to one click:
+Render doesn't offer a free managed MySQL database (only Postgres), so this app's Render deployment needs to point at MySQL hosted elsewhere. A few free options: **Railway** (MySQL plugin, free trial credit), **Aiven** (free MySQL tier), **Clever Cloud** (free "DEV" MySQL plan), or **db4free.net** (free but slower, fine for a demo).
 
-1. Push the repo to GitHub (above).
-2. Go to [render.com](https://render.com) → **New → Blueprint** → connect your GitHub repo.
-3. Render reads `render.yaml` automatically and provisions:
-   - A free Node web service
-   - Build command: `npm install`
-   - Start command: `npm start` (this automatically runs migrations, seeds demo data **only if the database is empty**, then boots the server — safe to redeploy repeatedly)
-   - `SESSION_SECRET` auto-generated, `NODE_ENV=production` set for you
-4. Click **Apply** — you'll get a live URL like `https://rbac-dashboard.onrender.com` in a couple of minutes.
+1. Set up a free MySQL database with one of the above, and note its host, port, database name, username, and password.
+2. Push this repo to GitHub (above).
+3. On [render.com](https://render.com): **New → Blueprint** → connect your GitHub repo. Render reads the included `render.yaml` and provisions a free Node web service with `SESSION_SECRET` auto-generated and `NODE_ENV=production` set.
+4. After the first deploy, go to the service's **Environment** tab and add:
+   - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — from step 1
+   - `DB_SSL=true` (most free MySQL hosts require SSL)
+5. Trigger a **Manual Deploy** so the new env vars take effect. `npm start` will run migrations, seed demo data (only if the database is empty), and boot the server.
 
-If you'd rather set it up manually instead of using the Blueprint: **New → Web Service** → connect repo → Build Command `npm install` → Start Command `npm start` → add env var `SESSION_SECRET` (any long random string) and `NODE_ENV=production`.
-
-**Note on Render's free tier:** the service spins down after 15 minutes of inactivity and the first request after that takes ~30–50 seconds to wake up — this is normal, not a bug. Also, the free tier's disk is ephemeral, so the SQLite database resets to the clean seeded state on every redeploy (not on every sleep/wake). For a demo/assessment this is actually convenient — reviewers always see fresh, clean demo data.
+**Note on Render's free tier:** the service spins down after 15 minutes of inactivity and the first request after that takes ~30–50 seconds to wake up — this is normal, not a bug.
 
 ### Why not Vercel?
-Vercel runs Node apps as serverless functions with a read-only, per-request filesystem and no persistent in-process memory. This app uses a SQLite file and stores sessions in it — both need a persistent, always-running process, which Render (or Railway, Fly.io, a VPS, etc.) provides but Vercel's serverless model does not. Deploying this specific app to Vercel would require swapping in a hosted database (e.g. Postgres via Neon/Supabase) — happy to do that migration if that's a hard requirement.
+Vercel runs Node apps as serverless functions with a read-only, per-request filesystem and no persistent in-process memory. This app needs a persistent, always-running process (for the session store and general request handling), which Render (or Railway, Fly.io, a VPS, etc.) provides but Vercel's serverless model doesn't fit as naturally. It's not impossible — since the app now already uses an external MySQL database rather than a local file, a Vercel deployment is more feasible than it would have been with SQLite — but Render remains the simpler, zero-friction option for this project.
 
 ## Notes / Design Decisions
 
-- **SQLite** was chosen for zero-config portability for this assessment; the Sequelize config (`config/config.json`) can be swapped to `mysql`/`postgres` with a connection string and no other code changes, since all queries go through Sequelize models.
-- **Session-based auth** (rather than JWT) was used since this is a server-rendered app; the session cookie is httpOnly by default via `express-session`.
+- **MySQL** was chosen as a widely-used, industry-standard relational database that matches the assessment's requirement for proper relational structure (foreign keys, joins) between Users, Roles, Projects, and Tasks.
+- The Sequelize config (`config/config.js`) reads all connection details from environment variables, so switching to PostgreSQL or another MySQL-compatible host requires no code changes — only different `.env` values (and `dialect` if switching away from MySQL entirely).
+- **Session-based auth** (rather than JWT) was used since this is a server-rendered app; sessions are stored in a MySQL table (`sessions`, via `connect-session-sequelize`) rather than in-memory, so they survive server restarts and don't leak memory under load.
 - Soft-deleted records (`paranoid: true`) are hidden from all default queries automatically by Sequelize, but remain in the database for audit purposes.

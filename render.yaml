@@ -12,3 +12,19 @@ services:
         generateValue: true
       - key: PORT
         value: 3000
+      # Render does not offer a free managed MySQL database, so these must
+      # point at an external MySQL host (e.g. Railway, Aiven, Clever Cloud,
+      # PlanetScale). Set these manually in the Render dashboard's
+      # Environment tab after the first deploy — see README for details.
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: 3306
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_SSL
+        value: "true"
