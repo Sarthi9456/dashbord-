@@ -1,0 +1,109 @@
+<h1 class="page-title">Dashboard</h1>
+<p class="page-subtitle">
+  Welcome back, <strong><%= currentUser.name %></strong>
+  (<span class="badge badge-<%= currentUser.role %>"><%= currentUser.role %></span>)
+</p>
+
+<% if (currentUser.role === 'admin' || currentUser.role === 'manager') { %>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.totalUsers %></div>
+      <div class="stat-label">Total Users</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.totalProjects %></div>
+      <div class="stat-label">Total Projects</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.activeProjects %></div>
+      <div class="stat-label">Active Projects (In Progress)</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.pendingTasks %></div>
+      <div class="stat-label">Pending Tasks</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.inProgressTasks %></div>
+      <div class="stat-label">In-Progress Tasks</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.completedTasks %></div>
+      <div class="stat-label">Completed Tasks</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Recent Projects</h2>
+      <a href="/projects" class="btn btn-secondary btn-sm">View all</a>
+    </div>
+    <% if (stats.recentProjects.length === 0) { %>
+      <div class="empty-state">No projects yet.</div>
+    <% } else { %>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Status</th><th>Start</th><th>End</th></tr>
+        </thead>
+        <tbody>
+          <% stats.recentProjects.forEach(p => { %>
+            <tr>
+              <td><%= p.name %></td>
+              <td><span class="badge badge-<%= p.status.replace(' ', '-') %>"><%= p.status %></span></td>
+              <td><%= p.startDate %></td>
+              <td><%= p.endDate || '—' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+
+<% } else { %>
+  <!-- Employee view: only their own data -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.myProjectsCount %></div>
+      <div class="stat-label">My Projects</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.myTasks %></div>
+      <div class="stat-label">My Tasks</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.pendingTasks %></div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.inProgressTasks %></div>
+      <div class="stat-label">In Progress</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value"><%= stats.completedTasks %></div>
+      <div class="stat-label">Completed</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h2>My Projects</h2>
+      <a href="/projects" class="btn btn-secondary btn-sm">View all</a>
+    </div>
+    <% if (stats.myProjects.length === 0) { %>
+      <div class="empty-state">You are not assigned to any projects yet.</div>
+    <% } else { %>
+      <table>
+        <thead><tr><th>Name</th><th>Status</th><th>Start</th><th>End</th></tr></thead>
+        <tbody>
+          <% stats.myProjects.forEach(p => { %>
+            <tr>
+              <td><%= p.name %></td>
+              <td><span class="badge badge-<%= p.status.replace(' ', '-') %>"><%= p.status %></span></td>
+              <td><%= p.startDate %></td>
+              <td><%= p.endDate || '—' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+<% } %>

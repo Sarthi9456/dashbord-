@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= title %> · RBAC Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <% if (currentUser) { %>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">RBAC Dashboard</div>
+        <nav>
+          <a href="/dashboard" class="<%= title === 'Dashboard' ? 'active' : '' %>">📊 Dashboard</a>
+          <% if (currentUser.role === 'admin') { %>
+            <a href="/users" class="<%= title === 'Manage Users' ? 'active' : '' %>">👥 Users</a>
+          <% } %>
+          <a href="/projects" class="<%= title === 'Projects' ? 'active' : '' %>">📁 Projects</a>
+          <a href="/tasks" class="<%= (title === 'Tasks' || title === 'My Tasks') ? 'active' : '' %>">✅ <%= currentUser.role === 'employee' ? 'My Tasks' : 'Tasks' %></a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="user-chip">
+            <div class="avatar"><%= currentUser.name.charAt(0) %></div>
+            <div>
+              <div class="user-name"><%= currentUser.name %></div>
+              <div class="user-role role-<%= currentUser.role %>"><%= currentUser.role %></div>
+            </div>
+          </div>
+          <form action="/logout" method="POST">
+            <button type="submit" class="btn btn-logout">Logout</button>
+          </form>
+        </div>
+      </aside>
+      <main class="content">
+        <% if (success && success.length) { %>
+          <div class="alert alert-success"><%= success[0] %></div>
+        <% } %>
+        <% if (error && error.length) { %>
+          <div class="alert alert-error"><%= error[0] %></div>
+        <% } %>
+        <%- body %>
+      </main>
+    </div>
+  <% } else { %>
+    <%- body %>
+  <% } %>
+</body>
+</html>

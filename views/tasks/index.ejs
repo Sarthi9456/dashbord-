@@ -1,0 +1,223 @@
+<h1 class="page-title"><%= currentUser.role === 'employee' ? 'My Tasks' : 'Tasks' %></h1>
+<p class="page-subtitle">
+  <% if (currentUser.role === 'employee') { %>
+    View your assigned tasks and update their status.
+  <% } else { %>
+    Create tasks and assign them to employees.
+  <% } %>
+</p>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2><%= currentUser.role === 'employee' ? 'My Tasks' : 'All Tasks' %></h2>
+    <% if (currentUser.role === 'admin' || currentUser.role === 'manager') { %>
+      <button class="btn btn-primary btn-sm" onclick="openModal('createTaskModal')">+ New Task</button>
+    <% } %>
+  </div>
+
+  <form class="filters-bar" method="GET" action="/tasks">
+    <input type="text" name="search" placeholder="Search by task title..." value="<%= search %>" />
+    <select name="status">
+      <option value="">All Statuses</option>
+      <option value="Pending" <%= statusFilter === 'Pending' ? 'selected' : '' %>>Pending</option>
+      <option value="In Progress" <%= statusFilter === 'In Progress' ? 'selected' : '' %>>In Progress</option>
+      <option value="Completed" <%= statusFilter === 'Completed' ? 'selected' : '' %>>Completed</option>
+    </select>
+    <select name="priority">
+      <option value="">All Priorities</option>
+      <option value="Low" <%= priorityFilter === 'Low' ? 'selected' : '' %>>Low</option>
+      <option value="Medium" <%= priorityFilter === 'Medium' ? 'selected' : '' %>>Medium</option>
+      <option value="High" <%= priorityFilter === 'High' ? 'selected' : '' %>>High</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+    <% if (search || statusFilter || priorityFilter) { %><a href="/tasks" class="btn btn-secondary btn-sm">Clear</a><% } %>
+  </form>
+
+  <% if (tasks.length === 0) { %>
+    <div class="empty-state">No tasks found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th><th>Project</th><th>Assignee</th><th>Priority</th>
+          <th>Due Date</th><th>Status</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% tasks.forEach(t => { %>
+          <tr>
+            <td><strong><%= t.title %></strong><br/><small style="color:#6b7280;"><%= t.description || '' %></small></td>
+            <td><%= t.project ? t.project.name : '—' %></td>
+            <td><%= t.assignee ? t.assignee.name : 'Unassigned' %></td>
+            <td><span class="badge badge-<%= t.priority %>"><%= t.priority %></span></td>
+            <td><%= t.dueDate || '—' %></td>
+            <td><span class="badge badge-<%= t.status.replace(' ', '-') %>"><%= t.status %></span></td>
+            <td class="actions-cell">
+              <!-- All roles can update status of their own/visible tasks; ownership is enforced server-side -->
+              <form action="/tasks/<%= t.id %>/status?_method=PATCH" method="POST">
+                <select name="status" onchange="this.form.submit()" style="padding:4px 8px; font-size:12px; border-radius:6px;">
+                  <option value="Pending" <%= t.status === 'Pending' ? 'selected' : '' %>>Pending</option>
+                  <option value="In Progress" <%= t.status === 'In Progress' ? 'selected' : '' %>>In Progress</option>
+                  <option value="Completed" <%= t.status === 'Completed' ? 'selected' : '' %>>Completed</option>
+                </select>
+              </form>
+              <% if (currentUser.role === 'admin' || currentUser.role === 'manager') { %>
+                <button class="btn btn-secondary btn-sm" onclick='openEditTask(<%- JSON.stringify({
+                  id: t.id, title: t.title, description: t.description, projectId: t.projectId,
+                  assignedEmployeeId: t.assignedEmployeeId, priority: t.priority, dueDate: t.dueDate, status: t.status
+                }) %>)'>Edit</button>
+                <form action="/tasks/<%= t.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete this task?');">
+                  <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <div class="pagination">
+      <% for (let i = 1; i <= totalPages; i++) { %>
+        <a href="/tasks?page=<%= i %>" class="<%= i === currentPage ? 'active' : '' %>"><%= i %></a>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+
+<% if (currentUser.role === 'admin' || currentUser.role === 'manager') { %>
+<!-- Create Task Modal -->
+<div class="modal-overlay" id="createTaskModal">
+  <div class="modal">
+    <h3>New Task</h3>
+    <form action="/tasks" method="POST">
+      <div class="form-group">
+        <label>Task Title</label>
+        <input type="text" name="title" required />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Project</label>
+        <select name="projectId" required>
+          <% projects.forEach(p => { %>
+            <option value="<%= p.id %>"><%= p.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assigned Employee</label>
+        <select name="assignedEmployeeId">
+          <option value="">Unassigned</option>
+          <% employees.forEach(e => { %>
+            <option value="<%= e.id %>"><%= e.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Priority</label>
+          <select name="priority">
+            <option value="Low">Low</option>
+            <option value="Medium" selected>Medium</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Due Date</label>
+          <input type="date" name="dueDate" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+          <option value="Pending">Pending</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('createTaskModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div class="modal-overlay" id="editTaskModal">
+  <div class="modal">
+    <h3>Edit Task</h3>
+    <form id="editTaskForm" method="POST">
+      <div class="form-group">
+        <label>Task Title</label>
+        <input type="text" name="title" id="et-title" required />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" id="et-description" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Project</label>
+        <select name="projectId" id="et-projectId" required>
+          <% projects.forEach(p => { %>
+            <option value="<%= p.id %>"><%= p.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assigned Employee</label>
+        <select name="assignedEmployeeId" id="et-assignedEmployeeId">
+          <option value="">Unassigned</option>
+          <% employees.forEach(e => { %>
+            <option value="<%= e.id %>"><%= e.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Priority</label>
+          <select name="priority" id="et-priority">
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Due Date</label>
+          <input type="date" name="dueDate" id="et-dueDate" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status" id="et-status">
+          <option value="Pending">Pending</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editTaskModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function openEditTask(t) {
+    document.getElementById('et-title').value = t.title;
+    document.getElementById('et-description').value = t.description || '';
+    document.getElementById('et-projectId').value = t.projectId;
+    document.getElementById('et-assignedEmployeeId').value = t.assignedEmployeeId || '';
+    document.getElementById('et-priority').value = t.priority;
+    document.getElementById('et-dueDate').value = t.dueDate || '';
+    document.getElementById('et-status').value = t.status;
+    document.getElementById('editTaskForm').action = '/tasks/' + t.id + '?_method=PUT';
+    openModal('editTaskModal');
+  }
+</script>
+<% } %>

@@ -1,0 +1,189 @@
+<h1 class="page-title">Projects</h1>
+<p class="page-subtitle">
+  <% if (currentUser.role === 'employee') { %>
+    Projects you're assigned to.
+  <% } else { %>
+    Create and manage projects, assign employees.
+  <% } %>
+</p>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2>All Projects</h2>
+    <% if (currentUser.role === 'admin' || currentUser.role === 'manager') { %>
+      <button class="btn btn-primary btn-sm" onclick="openModal('createProjectModal')">+ New Project</button>
+    <% } %>
+  </div>
+
+  <form class="filters-bar" method="GET" action="/projects">
+    <input type="text" name="search" placeholder="Search by project name..." value="<%= search %>" />
+    <select name="status">
+      <option value="">All Statuses</option>
+      <option value="Pending" <%= statusFilter === 'Pending' ? 'selected' : '' %>>Pending</option>
+      <option value="In Progress" <%= statusFilter === 'In Progress' ? 'selected' : '' %>>In Progress</option>
+      <option value="Completed" <%= statusFilter === 'Completed' ? 'selected' : '' %>>Completed</option>
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+    <% if (search || statusFilter) { %><a href="/projects" class="btn btn-secondary btn-sm">Clear</a><% } %>
+  </form>
+
+  <% if (projects.length === 0) { %>
+    <div class="empty-state">No projects found.</div>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th><th>Status</th><th>Start</th><th>End</th>
+          <th>Employees</th><th>Created By</th>
+          <% if (currentUser.role !== 'employee') { %><th>Actions</th><% } %>
+        </tr>
+      </thead>
+      <tbody>
+        <% projects.forEach(p => { %>
+          <tr>
+            <td><strong><%= p.name %></strong><br/><small style="color:#6b7280;"><%= p.description || '' %></small></td>
+            <td><span class="badge badge-<%= p.status.replace(' ', '-') %>"><%= p.status %></span></td>
+            <td><%= p.startDate %></td>
+            <td><%= p.endDate || '—' %></td>
+            <td><%= p.employees.map(e => e.name).join(', ') || '—' %></td>
+            <td><%= p.creator ? p.creator.name : '—' %></td>
+            <% if (currentUser.role !== 'employee') { %>
+              <td class="actions-cell">
+                <button class="btn btn-secondary btn-sm" onclick='openEditProject(<%- JSON.stringify({
+                  id: p.id, name: p.name, description: p.description, startDate: p.startDate,
+                  endDate: p.endDate, status: p.status, employeeIds: p.employees.map(e => e.id)
+                }) %>)'>Edit</button>
+                <form action="/projects/<%= p.id %>?_method=DELETE" method="POST" onsubmit="return confirm('Delete this project and all its tasks?');">
+                  <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                </form>
+              </td>
+            <% } %>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <div class="pagination">
+      <% for (let i = 1; i <= totalPages; i++) { %>
+        <a href="/projects?page=<%= i %>" class="<%= i === currentPage ? 'active' : '' %>"><%= i %></a>
+      <% } %>
+    </div>
+  <% } %>
+</div>
+
+<% if (currentUser.role === 'admin' || currentUser.role === 'manager') { %>
+<!-- Create Project Modal -->
+<div class="modal-overlay" id="createProjectModal">
+  <div class="modal">
+    <h3>New Project</h3>
+    <form action="/projects" method="POST">
+      <div class="form-group">
+        <label>Project Name</label>
+        <input type="text" name="name" required />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" name="startDate" required />
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" name="endDate" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+          <option value="Pending">Pending</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assign Employees</label>
+        <div class="checkbox-group">
+          <% employees.forEach(e => { %>
+            <label class="checkbox-item">
+              <input type="checkbox" name="employeeIds" value="<%= e.id %>" /> <%= e.name %>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('createProjectModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Edit Project Modal -->
+<div class="modal-overlay" id="editProjectModal">
+  <div class="modal">
+    <h3>Edit Project</h3>
+    <form id="editProjectForm" method="POST">
+      <div class="form-group">
+        <label>Project Name</label>
+        <input type="text" name="name" id="ep-name" required />
+      </div>
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" id="ep-description" rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date</label>
+          <input type="date" name="startDate" id="ep-startDate" required />
+        </div>
+        <div class="form-group">
+          <label>End Date</label>
+          <input type="date" name="endDate" id="ep-endDate" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status" id="ep-status">
+          <option value="Pending">Pending</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Assign Employees</label>
+        <div class="checkbox-group" id="ep-employees">
+          <% employees.forEach(e => { %>
+            <label class="checkbox-item">
+              <input type="checkbox" name="employeeIds" value="<%= e.id %>" class="ep-emp-checkbox" data-id="<%= e.id %>" /> <%= e.name %>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editProjectModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function openEditProject(p) {
+    document.getElementById('ep-name').value = p.name;
+    document.getElementById('ep-description').value = p.description || '';
+    document.getElementById('ep-startDate').value = p.startDate;
+    document.getElementById('ep-endDate').value = p.endDate || '';
+    document.getElementById('ep-status').value = p.status;
+    document.querySelectorAll('.ep-emp-checkbox').forEach(cb => {
+      cb.checked = p.employeeIds.includes(parseInt(cb.dataset.id));
+    });
+    document.getElementById('editProjectForm').action = '/projects/' + p.id + '?_method=PUT';
+    openModal('editProjectModal');
+  }
+</script>
+<% } %>

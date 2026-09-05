@@ -1,0 +1,12 @@
+<div class="error-page">
+  <h1>403</h1>
+  <h2>Access Denied</h2>
+  <p style="color:#6b7280;">
+    <% if (typeof user !== 'undefined' && user) { %>
+      Your role (<strong><%= user.role %></strong>) does not have permission to view this page.
+    <% } else { %>
+      You do not have permission to view this page.
+    <% } %>
+  </p>
+  <a href="/dashboard" class="btn btn-primary">Back to Dashboard</a>
+</div>
