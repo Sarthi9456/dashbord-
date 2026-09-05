@@ -28,6 +28,14 @@ module.exports = (sequelize, DataTypes) => {
       roleId: {
         type: DataTypes.INTEGER,
         allowNull: false
+      },
+      resetPasswordToken: {
+        type: DataTypes.STRING,
+        allowNull: true
+      },
+      resetPasswordExpires: {
+        type: DataTypes.DATE,
+        allowNull: true
       }
     },
     {

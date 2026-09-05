@@ -8,4 +8,9 @@ router.get('/login', redirectIfAuthenticated, authController.showLogin);
 router.post('/login', redirectIfAuthenticated, authController.login);
 router.post('/logout', requireAuth, authController.logout);
 
+router.get('/forgot-password', redirectIfAuthenticated, authController.showForgotPassword);
+router.post('/forgot-password', redirectIfAuthenticated, authController.forgotPassword);
+router.get('/reset-password/:token', redirectIfAuthenticated, authController.showResetPassword);
+router.post('/reset-password/:token', redirectIfAuthenticated, authController.resetPassword);
+
 module.exports = router;
